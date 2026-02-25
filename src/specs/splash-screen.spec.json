@@ -1,0 +1,159 @@
+{
+  "screen": "Splash Screen",
+  "frame": { "width": 412, "height": 917 },
+  "tolerance": {
+    "position": 3,
+    "size": 2,
+    "color": 5
+  },
+  "elements": {
+    "container": {
+      "testId": "splash-container",
+      "bounds": { "x": 0, "y": 0, "width": 412, "height": 917 },
+      "style": {
+        "backgroundImage": { "contains": "radial-gradient" }
+      }
+    },
+    "statusBar": {
+      "testId": "status-bar",
+      "bounds": { "x": 0, "y": 0, "width": 412, "height": 52 },
+      "children": {
+        "time": {
+          "text": "11:11",
+          "style": {
+            "fontFamily": { "contains": "Roboto" },
+            "fontWeight": "500",
+            "fontSize": "15px"
+          }
+        }
+      }
+    },
+    "header": {
+      "testId": "header",
+      "bounds": { "y": 52, "width": 412, "height": 110 },
+      "style": {
+        "backdropFilter": { "contains": "blur" }
+      }
+    },
+    "backButton": {
+      "testId": "back-button",
+      "bounds": { "x": 15, "y": 109, "width": 36, "height": 36 },
+      "style": {
+        "borderRadius": "50%",
+        "backgroundColor": { "rgba": [82, 82, 82, 0.5], "tolerance": 10 }
+      }
+    },
+    "clockButton": {
+      "testId": "clock-button",
+      "bounds": { "x": 311, "y": 109, "width": 36, "height": 36 },
+      "style": {
+        "borderRadius": "50%"
+      }
+    },
+    "plusButton": {
+      "testId": "plus-button",
+      "bounds": { "x": 359, "y": 109, "width": 36, "height": 36 },
+      "style": {
+        "borderRadius": "50%"
+      }
+    },
+    "logo": {
+      "testId": "logo",
+      "bounds": { "x": 157, "width": 98, "height": 28 },
+      "text": { "contains": "glance" }
+    },
+    "aiResponse": {
+      "testId": "ai-response",
+      "bounds": { "x": 16, "y": 200, "width": 375, "height": 44 },
+      "toleranceOverride": { "position": 15, "size": 10 },
+      "text": "Love this vibe! Would you like to generate your look or refine it further?",
+      "style": {
+        "fontFamily": { "contains": "Montserrat" },
+        "fontWeight": "500",
+        "fontSize": "15px",
+        "letterSpacing": "0.3px",
+        "lineHeight": { "approx": "22px", "tolerance": 2 },
+        "color": "rgb(255, 255, 255)"
+      }
+    },
+    "refineFurtherButton": {
+      "testId": "btn-refine",
+      "bounds": { "x": 18, "width": 132, "height": 47 },
+      "relativeToParent": { "below": "ai-response", "gap": { "min": 10, "max": 30 } },
+      "text": "Refine Further",
+      "style": {
+        "backgroundColor": "rgb(43, 43, 43)",
+        "borderRadius": "4px",
+        "fontFamily": { "contains": "Montserrat" },
+        "fontWeight": "400",
+        "fontSize": "15px",
+        "color": "rgb(255, 255, 255)",
+        "whiteSpace": "nowrap"
+      }
+    },
+    "confirmButton": {
+      "testId": "btn-confirm",
+      "bounds": { "x": 18, "width": 132, "height": 47 },
+      "relativeToParent": { "below": "btn-refine", "gap": { "min": 8, "max": 16 } },
+      "text": "Confirm",
+      "style": {
+        "backgroundColor": "rgb(43, 43, 43)",
+        "borderRadius": "4px",
+        "fontFamily": { "contains": "Montserrat" },
+        "fontWeight": "400",
+        "fontSize": "15px",
+        "color": "rgb(255, 255, 255)"
+      }
+    },
+    "feedbackIcons": {
+      "testId": "feedback-icons",
+      "bounds": { "x": 16 },
+      "relativeToParent": { "below": "btn-confirm", "gap": { "min": 8, "max": 24 } },
+      "children": {
+        "count": 4,
+        "iconSize": { "width": 16, "height": 16, "tolerance": 4 },
+        "spacing": { "approx": 40, "tolerance": 10 }
+      }
+    },
+    "inputBar": {
+      "testId": "input-bar",
+      "bounds": { "width": 394, "height": 75 },
+      "anchorBottom": 0,
+      "style": {
+        "backgroundColor": { "rgba": [45, 45, 45, 0.8], "tolerance": 10 },
+        "borderRadius": "24px 24px 0px 0px"
+      }
+    },
+    "sendButton": {
+      "testId": "send-button",
+      "bounds": { "width": 38, "height": 38 },
+      "style": {
+        "borderRadius": { "contains": "50%" },
+        "backgroundColor": { "rgba": [82, 82, 82, 0.7], "tolerance": 10 },
+        "backdropFilter": { "contains": "blur" }
+      },
+      "hasSvgChild": true,
+      "svgContent": { "contains": "arrow-up-right" }
+    },
+    "inputPlaceholder": {
+      "testId": "input-placeholder",
+      "text": "Type here...",
+      "style": {
+        "fontFamily": { "contains": "Montserrat" },
+        "fontWeight": "500",
+        "fontSize": "14px",
+        "opacity": "0.5"
+      }
+    }
+  },
+  "visualChecks": {
+    "backgroundGradient": {
+      "description": "Purple glow visible only in bottom 20-25% of screen",
+      "samplePoints": [
+        { "x": 206, "y": 100, "expectedColor": { "r": 0, "g": 0, "b": 0, "tolerance": 15 }, "label": "Top area should be black" },
+        { "x": 206, "y": 460, "expectedColor": { "r": 0, "g": 0, "b": 0, "tolerance": 15 }, "label": "Middle should be black" },
+        { "x": 206, "y": 800, "expectedColor": { "r": [10, 40], "g": [10, 35], "b": [25, 70] }, "label": "Bottom should have purple tint" }
+      ]
+    }
+  }
+}

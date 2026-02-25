@@ -1,0 +1,177 @@
+.screen {
+  width: 100%;
+  max-width: 412px;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0 auto;
+  background: #000;
+  background: radial-gradient(
+    ellipse 120% 35% at 50% 100%,
+    rgba(106, 108, 212, 0.50) 0%,
+    rgba(106, 108, 212, 0.30) 30%,
+    rgba(106, 108, 212, 0.10) 50%,
+    rgba(0, 0, 0, 1) 70%
+  );
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Status Bar */
+.statusBar {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+
+.time {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  color: #fff;
+}
+
+.statusIcons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Header */
+.header {
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(0deg, rgba(18, 18, 25, 0) 0%, rgba(18, 18, 25, 1) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  flex-shrink: 0;
+}
+
+.logo {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400;
+  font-size: 18px;
+  color: #fff;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.logoStar {
+  font-size: 16px;
+}
+
+.headerRight {
+  display: flex;
+  gap: 8px;
+}
+
+/* Content */
+.content {
+  flex: 1;
+  padding: 0 16px;
+  padding-bottom: 120px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Greeting */
+.greeting {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.greetingLight {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+  font-size: 34px;
+  letter-spacing: -0.03em;
+  color: #fff;
+  display: block;
+}
+
+.greetingBold {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 34px;
+  letter-spacing: -0.03em;
+  line-height: 1.15em;
+  color: #fff;
+  display: block;
+}
+
+/* AI Response */
+.aiResponse {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  line-height: 1.467em;
+  color: #fff;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-bottom: 16px;
+  align-items: flex-start;
+}
+
+/* Feedback Icons */
+.feedbackIcons {
+  display: flex;
+  align-items: center;
+  color: #fff;
+}
+
+.feedbackIcons svg {
+  width: 16px;
+  height: 16px;
+}
+
+.feedbackIcons svg:nth-child(1) { margin-right: 24px; }
+.feedbackIcons svg:nth-child(2) { margin-right: 22px; }
+.feedbackIcons svg:nth-child(3) { margin-right: 17px; }
+
+/* Hidden state */
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  margin: 0 !important;
+  overflow: hidden;
+}
+
+/* Cards */
+.cards {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.cards::-webkit-scrollbar {
+  display: none;
+}
+
+.cardsVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
