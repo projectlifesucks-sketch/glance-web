@@ -111,7 +111,7 @@ export function SplashScreen() {
           </svg>
         </div>
 
-        <div className={`${styles.cards} ${styles.hidden}`}>
+        <div className={`${styles.cards} ${showCards ? '' : styles.hidden}`}>
           <Card
             icon={<svg viewBox="0 0 22 22" fill="none"><path d="M11 2C8 2 6 5 6 8C6 12 8 14 11 14C14 14 16 12 16 8C16 5 14 2 11 2Z" stroke="#fff" strokeWidth="1.5"/><path d="M7 14C4 15 3 18 3 20H19C19 18 18 15 15 14" stroke="#fff" strokeWidth="1.5"/></svg>}
             title="Hairstyle"
