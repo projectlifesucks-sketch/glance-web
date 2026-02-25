@@ -1,0 +1,36 @@
+name: Automated QA Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [develop]
+
+jobs:
+  qa-review:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Trigger QA Review
+        run: |
+          openclaw agent --agent product-engineer -m "
+          ## Automated PR Review Triggered (Glance Web)
+
+          A PR needs QA review:
+          - **PR #${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}
+          - **Branch**: ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}
+          - **Author**: ${{ github.event.pull_request.user.login }}
+          - **URL**: ${{ github.event.pull_request.html_url }}
+          - **Repo**: glance-web (React + Vite + TypeScript)
+
+          ### Instructions:
+          1. Spawn qa-dev to review this PR:
+             - cd ~/glance-web && git fetch && git checkout ${{ github.event.pull_request.head.ref }}
+             - Run: npm ci && npm run build && npm run lint
+             - Verify the build output and check for TypeScript/lint errors
+             - Run: npm run preview and test changed/new pages in browser
+             - Take screenshots of any UI changes
+          2. Based on QA results:
+             - **ALL PASS**: Run gh pr review ${{ github.event.pull_request.number }} --repo projectlifesucks-sketch/glance-web --approve --body 'QA Review: ✅ All checks passed. <detailed results>' && gh pr merge ${{ github.event.pull_request.number }} --repo projectlifesucks-sketch/glance-web --squash --delete-branch
+             - **ANY FAIL**: Run gh pr review ${{ github.event.pull_request.number }} --repo projectlifesucks-sketch/glance-web --request-changes --body 'QA Review: ❌ Issues found. <detailed failure list>'
+          3. Report the outcome to the user.
+          "
