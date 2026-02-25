@@ -1,40 +1,83 @@
-name: Deploy to GitHub Pages
+name: Deploy Pipeline
 
 on:
   push:
     branches: [develop]
+  pull_request:
+    branches: [staging, main]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy to environment'
+        required: true
+        type: choice
+        options: [preview, staging, production]
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
+# Only one deployment at a time
 concurrency:
-  group: pages
+  group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  # ─── Stage 1: Preview (auto on develop push) ───
+  preview:
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - run: npm ci
       - run: npm run build
+      - id: deploy
+        run: npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} | tee /tmp/url.txt && echo "url=$(cat /tmp/url.txt)" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+  # ─── Stage 2: Staging (on PR to staging, requires approval) ───
+  staging:
+    if: github.base_ref == 'staging' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          path: dist
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - id: deploy
+        run: npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} | tee /tmp/url.txt && echo "url=$(cat /tmp/url.txt)" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - id: deployment
-        uses: actions/deploy-pages@v4
+  # ─── Stage 3: Production (on PR to main, requires approval) ───
+  production:
+    if: github.base_ref == 'main' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - id: deploy
+        run: npx vercel deploy --prod --prebuilt --token=${{ secrets.VERCEL_TOKEN }} | tee /tmp/url.txt && echo "url=$(cat /tmp/url.txt)" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
