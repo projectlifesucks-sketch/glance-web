@@ -8,3 +8,4 @@ createRoot(document.getElementById('root')!).render(
     <SplashScreen />
   </StrictMode>,
 );
+// QA pipeline test v2 - Thu Feb 26 13:20:27 IST 2026
