@@ -1,34 +1,85 @@
 name: Automated QA Review
 
 on:
-  push:
-    branches: [develop]
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [develop, staging, main]
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   qa-review:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
-      - name: Trigger QA Review
+      - name: Run QA Verification
         run: |
-          openclaw agent --agent product-engineer -m "
-          ## QA Review Triggered (Glance Web)
+          RESULT_FILE="/tmp/qa-result-web-pr-${{ github.event.pull_request.number }}.txt"
+          rm -f "$RESULT_FILE"
 
-          New code merged to develop:
-          - **Commit**: ${{ github.sha }}
-          - **Message**: ${{ github.event.head_commit.message }}
-          - **Author**: ${{ github.event.head_commit.author.name }}
+          openclaw agent --agent qa-dev --local -m "
+          ## PR QA Review: Web
+
+          Review this PR:
+          - **PR #${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}
+          - **Branch**: ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}
+          - **Author**: ${{ github.event.pull_request.user.login }}
           - **Repo**: glance-web (React + Vite + TypeScript)
-          - **Branch**: develop
 
-          ### Instructions:
-          1. Delegate to qa-dev (single instance) to review:
-             - cd ~/glance-web && git fetch && git checkout develop && git pull
-             - Run: npm ci && npm run lint && npx tsc -b --noEmit && npm run build
-             - Run: npm run preview and test all pages in browser
-             - Take screenshots of the current state
-          2. Report results — DO NOT auto-merge or create PRs:
-             - **ALL PASS**: Report QA passed with screenshots and details to the user
-             - **ANY FAIL**: Report failures with details to the user
-          3. The human will handle promotion to staging/main manually.
+          ### Steps:
+          1. cd ~/glance-web && git fetch && git checkout ${{ github.event.pull_request.head.ref }}
+          2. Run: npm ci && npm run lint && npx tsc -b --noEmit && npm run build
+          3. Run: npm run preview and test all pages in browser — take screenshots
+          4. Write EXACTLY one line to $RESULT_FILE:
+             - If ALL checks pass: echo 'PASS' > $RESULT_FILE
+             - If ANY check fails: echo 'FAIL' > $RESULT_FILE
+          5. Then write your detailed QA report to ${RESULT_FILE}.report
           "
+
+      - name: Read QA Result
+        id: qa
+        run: |
+          RESULT_FILE="/tmp/qa-result-web-pr-${{ github.event.pull_request.number }}.txt"
+          if [ -f "$RESULT_FILE" ]; then
+            RESULT=$(cat "$RESULT_FILE")
+            echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=FAIL" >> "$GITHUB_OUTPUT"
+            echo "QA agent did not write a result file"
+          fi
+
+      - name: Read QA Report
+        id: report
+        run: |
+          REPORT_FILE="/tmp/qa-result-web-pr-${{ github.event.pull_request.number }}.txt.report"
+          if [ -f "$REPORT_FILE" ]; then
+            REPORT=$(cat "$REPORT_FILE")
+            echo "body<<EOFQAREPORT" >> "$GITHUB_OUTPUT"
+            echo "$REPORT" >> "$GITHUB_OUTPUT"
+            echo "EOFQAREPORT" >> "$GITHUB_OUTPUT"
+          else
+            echo "body=QA review completed." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Approve and Merge PR
+        if: steps.qa.outputs.result == 'PASS'
+        run: |
+          gh pr review ${{ github.event.pull_request.number }} \
+            --approve \
+            --body "QA Review: All checks passed. ${{ steps.report.outputs.body }}"
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --squash \
+            --delete-branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Request Changes
+        if: steps.qa.outputs.result != 'PASS'
+        run: |
+          gh pr review ${{ github.event.pull_request.number }} \
+            --request-changes \
+            --body "QA Review: Issues found. ${{ steps.report.outputs.body }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
