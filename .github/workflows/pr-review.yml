@@ -92,11 +92,17 @@ jobs:
             echo "QA review completed. Result: ${{ steps.qa.outputs.result }}" > "$BODY_FILE"
           fi
 
-      - name: Approve and Merge PR
+      - name: Approve PR
         if: steps.qa.outputs.result == 'PASS'
         run: |
           gh pr review "$PR_NUM" --repo "$REPO" --approve \
             --body-file "/tmp/qa-body-web-pr-${PR_NUM}.txt"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Auto-merge to develop
+        if: steps.qa.outputs.result == 'PASS' && github.event.pull_request.base.ref == 'develop'
+        run: |
           gh pr merge "$PR_NUM" --repo "$REPO" --squash --delete-branch
         env:
           GH_TOKEN: ${{ github.token }}
