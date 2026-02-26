@@ -9,21 +9,29 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: qa-review
+  cancel-in-progress: false
+
 jobs:
   qa-review:
     runs-on: self-hosted
     timeout-minutes: 30
+    env:
+      REPO: ${{ github.repository }}
+      PR_NUM: ${{ github.event.pull_request.number }}
     steps:
       - name: Run QA Verification
         run: |
-          RESULT_FILE="/tmp/qa-result-web-pr-${{ github.event.pull_request.number }}.txt"
-          rm -f "$RESULT_FILE"
+          RESULT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt"
+          REPORT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt.report"
+          rm -f "$RESULT_FILE" "$REPORT_FILE"
 
           openclaw agent --agent qa-dev --local -m "
           ## PR QA Review: Web
 
           Review this PR:
-          - **PR #${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}
+          - **PR #${PR_NUM}**: ${{ github.event.pull_request.title }}
           - **Branch**: ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}
           - **Author**: ${{ github.event.pull_request.user.login }}
           - **Repo**: glance-web (React + Vite + TypeScript)
@@ -35,51 +43,46 @@ jobs:
           4. Write EXACTLY one line to $RESULT_FILE:
              - If ALL checks pass: echo 'PASS' > $RESULT_FILE
              - If ANY check fails: echo 'FAIL' > $RESULT_FILE
-          5. Then write your detailed QA report to ${RESULT_FILE}.report
+          5. Then write your detailed QA report to $REPORT_FILE
           "
 
       - name: Read QA Result
         id: qa
         run: |
-          RESULT_FILE="/tmp/qa-result-web-pr-${{ github.event.pull_request.number }}.txt"
+          RESULT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt"
           if [ -f "$RESULT_FILE" ]; then
-            RESULT=$(cat "$RESULT_FILE")
+            RESULT=$(head -1 "$RESULT_FILE" | tr -d '[:space:]')
             echo "result=$RESULT" >> "$GITHUB_OUTPUT"
           else
             echo "result=FAIL" >> "$GITHUB_OUTPUT"
             echo "QA agent did not write a result file"
           fi
 
-      - name: Read QA Report
-        id: report
+      - name: Prepare Review Body
         run: |
-          REPORT_FILE="/tmp/qa-result-web-pr-${{ github.event.pull_request.number }}.txt.report"
+          REPORT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt.report"
+          BODY_FILE="/tmp/qa-body-web-pr-${PR_NUM}.txt"
           if [ -f "$REPORT_FILE" ]; then
-            REPORT=$(cat "$REPORT_FILE")
-            echo "body<<EOFQAREPORT" >> "$GITHUB_OUTPUT"
-            echo "$REPORT" >> "$GITHUB_OUTPUT"
-            echo "EOFQAREPORT" >> "$GITHUB_OUTPUT"
+            echo "QA Review: ${{ steps.qa.outputs.result == 'PASS' && 'All checks passed.' || 'Issues found.' }}" > "$BODY_FILE"
+            echo "" >> "$BODY_FILE"
+            cat "$REPORT_FILE" >> "$BODY_FILE"
           else
-            echo "body=QA review completed." >> "$GITHUB_OUTPUT"
+            echo "QA review completed. Result: ${{ steps.qa.outputs.result }}" > "$BODY_FILE"
           fi
 
       - name: Approve and Merge PR
         if: steps.qa.outputs.result == 'PASS'
         run: |
-          gh pr review ${{ github.event.pull_request.number }} \
-            --approve \
-            --body "QA Review: All checks passed. ${{ steps.report.outputs.body }}"
-          gh pr merge ${{ github.event.pull_request.number }} \
-            --squash \
-            --delete-branch
+          gh pr review "$PR_NUM" --repo "$REPO" --approve \
+            --body-file "/tmp/qa-body-web-pr-${PR_NUM}.txt"
+          gh pr merge "$PR_NUM" --repo "$REPO" --squash --delete-branch
         env:
           GH_TOKEN: ${{ github.token }}
 
       - name: Request Changes
         if: steps.qa.outputs.result != 'PASS'
         run: |
-          gh pr review ${{ github.event.pull_request.number }} \
-            --request-changes \
-            --body "QA Review: Issues found. ${{ steps.report.outputs.body }}"
+          gh pr review "$PR_NUM" --repo "$REPO" --request-changes \
+            --body-file "/tmp/qa-body-web-pr-${PR_NUM}.txt"
         env:
           GH_TOKEN: ${{ github.token }}
