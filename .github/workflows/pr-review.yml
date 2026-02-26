@@ -27,6 +27,7 @@ jobs:
           REPORT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt.report"
           rm -f "$RESULT_FILE" "$REPORT_FILE"
 
+          # Run agent in background — it may not exit cleanly after completing
           openclaw agent --agent qa-dev --local -m "
           ## PR QA Review: Web
 
@@ -44,7 +45,28 @@ jobs:
              - If ALL checks pass: echo 'PASS' > $RESULT_FILE
              - If ANY check fails: echo 'FAIL' > $RESULT_FILE
           5. Then write your detailed QA report to $REPORT_FILE
-          "
+          " &
+          AGENT_PID=$!
+
+          # Poll for result file (agent writes it when done, but process may linger)
+          TIMEOUT=1500
+          ELAPSED=0
+          while [ ! -f "$RESULT_FILE" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+          done
+
+          # Give agent a moment to finish writing the report file
+          sleep 10
+
+          # Kill the agent process if still running
+          kill $AGENT_PID 2>/dev/null || true
+          wait $AGENT_PID 2>/dev/null || true
+
+          if [ ! -f "$RESULT_FILE" ]; then
+            echo "FAIL" > "$RESULT_FILE"
+            echo "QA agent timed out after ${TIMEOUT}s without writing result" > "$REPORT_FILE"
+          fi
 
       - name: Read QA Result
         id: qa
