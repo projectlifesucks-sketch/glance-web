@@ -3,34 +3,114 @@ name: Automated QA Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [develop]
+    branches: [develop, staging, main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: qa-review
+  cancel-in-progress: false
 
 jobs:
   qa-review:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 30
+    env:
+      REPO: ${{ github.repository }}
+      PR_NUM: ${{ github.event.pull_request.number }}
     steps:
-      - name: Trigger QA Review
+      - name: Run QA Verification
         run: |
-          openclaw agent --agent product-engineer -m "
-          ## Automated PR Review Triggered (Glance Web)
+          RESULT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt"
+          REPORT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt.report"
+          rm -f "$RESULT_FILE" "$REPORT_FILE"
 
-          A PR needs QA review:
-          - **PR #${{ github.event.pull_request.number }}**: ${{ github.event.pull_request.title }}
+          # Run agent in background — it may not exit cleanly after completing
+          openclaw agent --agent qa-dev --local -m "
+          ## PR QA Review: Web
+
+          Review this PR:
+          - **PR #${PR_NUM}**: ${{ github.event.pull_request.title }}
           - **Branch**: ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}
           - **Author**: ${{ github.event.pull_request.user.login }}
-          - **URL**: ${{ github.event.pull_request.html_url }}
           - **Repo**: glance-web (React + Vite + TypeScript)
 
-          ### Instructions:
-          1. Spawn qa-dev to review this PR:
-             - cd ~/glance-web && git fetch && git checkout ${{ github.event.pull_request.head.ref }}
-             - Run: npm ci && npm run build && npm run lint
-             - Verify the build output and check for TypeScript/lint errors
-             - Run: npm run preview and test changed/new pages in browser
-             - Take screenshots of any UI changes
-          2. Based on QA results:
-             - **ALL PASS**: Run gh pr review ${{ github.event.pull_request.number }} --repo projectlifesucks-sketch/glance-web --approve --body 'QA Review: ✅ All checks passed. <detailed results>' && gh pr merge ${{ github.event.pull_request.number }} --repo projectlifesucks-sketch/glance-web --squash --delete-branch
-             - **ANY FAIL**: Run gh pr review ${{ github.event.pull_request.number }} --repo projectlifesucks-sketch/glance-web --request-changes --body 'QA Review: ❌ Issues found. <detailed failure list>'
-          3. Report the outcome to the user.
-          "
+          ### Steps:
+          1. cd ~/glance-web && git fetch && git checkout ${{ github.event.pull_request.head.ref }}
+          2. Run: npm ci && npm run lint && npx tsc -b --noEmit && npm run build
+          3. Run: npm run preview and test all pages in browser — take screenshots
+          4. Write EXACTLY one line to $RESULT_FILE:
+             - If ALL checks pass: echo 'PASS' > $RESULT_FILE
+             - If ANY check fails: echo 'FAIL' > $RESULT_FILE
+          5. Then write your detailed QA report to $REPORT_FILE
+          " &
+          AGENT_PID=$!
+
+          # Poll for result file (agent writes it when done, but process may linger)
+          TIMEOUT=1500
+          ELAPSED=0
+          while [ ! -f "$RESULT_FILE" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+          done
+
+          # Give agent a moment to finish writing the report file
+          sleep 10
+
+          # Kill the agent process if still running
+          kill $AGENT_PID 2>/dev/null || true
+          wait $AGENT_PID 2>/dev/null || true
+
+          if [ ! -f "$RESULT_FILE" ]; then
+            echo "FAIL" > "$RESULT_FILE"
+            echo "QA agent timed out after ${TIMEOUT}s without writing result" > "$REPORT_FILE"
+          fi
+
+      - name: Read QA Result
+        id: qa
+        run: |
+          RESULT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt"
+          if [ -f "$RESULT_FILE" ]; then
+            RESULT=$(head -1 "$RESULT_FILE" | tr -d '[:space:]')
+            echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=FAIL" >> "$GITHUB_OUTPUT"
+            echo "QA agent did not write a result file"
+          fi
+
+      - name: Prepare Review Body
+        run: |
+          REPORT_FILE="/tmp/qa-result-web-pr-${PR_NUM}.txt.report"
+          BODY_FILE="/tmp/qa-body-web-pr-${PR_NUM}.txt"
+          if [ -f "$REPORT_FILE" ]; then
+            echo "QA Review: ${{ steps.qa.outputs.result == 'PASS' && 'All checks passed.' || 'Issues found.' }}" > "$BODY_FILE"
+            echo "" >> "$BODY_FILE"
+            cat "$REPORT_FILE" >> "$BODY_FILE"
+          else
+            echo "QA review completed. Result: ${{ steps.qa.outputs.result }}" > "$BODY_FILE"
+          fi
+
+      - name: Approve PR
+        if: steps.qa.outputs.result == 'PASS'
+        run: |
+          gh pr review "$PR_NUM" --repo "$REPO" --approve \
+            --body-file "/tmp/qa-body-web-pr-${PR_NUM}.txt"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Auto-merge to develop
+        if: steps.qa.outputs.result == 'PASS' && github.event.pull_request.base.ref == 'develop'
+        run: |
+          gh pr merge "$PR_NUM" --repo "$REPO" --squash --delete-branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Request Changes
+        if: steps.qa.outputs.result != 'PASS'
+        run: |
+          gh pr review "$PR_NUM" --repo "$REPO" --request-changes \
+            --body-file "/tmp/qa-body-web-pr-${PR_NUM}.txt"
+        env:
+          GH_TOKEN: ${{ github.token }}
